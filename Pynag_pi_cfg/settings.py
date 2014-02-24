@@ -37,6 +37,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'fabric',
     'main',
 )
 
@@ -83,9 +84,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-REST_FRAMEWORK = {
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.YAMLRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    )
-}
+
+TEMPLATE_DIRS = [
+          os.path.join(os.path.dirname(__file__) , 'templates').replace('\\','/'),
+          "/home/luma/PycharmProjects/Pynag_pi_cfg/templates/"
+    ]

@@ -13,12 +13,11 @@ class Sondas(models.Model):
     def __unicode__(self):
         return self.name
 
+
 class Services(models.Model):
     name = models.CharField(max_length=200)
-    command = models.CharField(max_length=2000)
+    command = models.TextField()
     pluging = models.BooleanField()
-    freshness_threshold = models.IntegerField()
-    contact = models.CharField(max_length=200)
 
     def __unicode__(self):
         return self.name
@@ -36,3 +35,5 @@ class HostsServicesSondas(models.Model):
     host = models.ForeignKey(Hosts)
     service = models.ForeignKey(Services)
     sonda = models.ForeignKey(Sondas)
+    freshness_threshold = models.IntegerField()
+    contact = models.CharField(max_length=200)

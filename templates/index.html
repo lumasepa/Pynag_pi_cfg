@@ -1,0 +1,23 @@
+<html>
+    <head><title>Actualizar Sondas</title></head>
+
+    <body>
+    {% block body %}
+        <form action="index.html" method="post">
+            {% csrf_token %}
+            <input type="submit" value="Enviarcfg">
+            <input type="text" value="1" name="sendcfg" hidden="true">
+        </form>
+        <table>
+            <tr>
+                <td> Sonda </td><td> Servicio </td><td> Host </td>
+            </tr>
+            {% for item in HostsServicesSondas %}
+                <tr>
+                <td>{{ item.sonda.name }}</td><td>{{ item.service.name }}</td><td>{{ item.host.name }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endblock %}
+    </body>
+</html>

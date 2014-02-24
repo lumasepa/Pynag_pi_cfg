@@ -9,13 +9,9 @@ urlpatterns = patterns('',
     # url(r'^blog/', include('blog.urls')),
 
     url(r'^admin/', include(admin.site.urls)),
+    url(r'^', include('main.urls')),
 
-    url(r'^services.yml', 'main.views.services_list', name='services'),
+    #url(r'^services.yml', 'main.views.services_list', name='services'),
 
-    url(r'^hosts.yml', 'main.views.hosts_list', name='hosts'),
-
-    url(r'^sondas.yml', 'main.views.sondas_list', name='sondas'),
-
-    url(r'^hostsservicessondas.yml', 'main.views.hostsservicessondas_list', name='hostsservicessondas'),
 
 )
