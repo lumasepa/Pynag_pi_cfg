@@ -1,0 +1,4 @@
+scripts/*
+keys/*
+*.sqlite3
+*~

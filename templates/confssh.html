@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Conf ssh</title>
+</head>
+<body>
+    <p>{{ status }}</p>
+    <form action="confssh.html" method="post">
+            {% csrf_token %}
+        <label>User</label><input type="text" value="" name="user">
+        <label>Password</label><input type="password" value="" name="passwd">
+        <input type="submit" value="Configurar ssh">
+    </form>
+</body>
+</html>

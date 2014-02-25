@@ -6,10 +6,8 @@ from django.db import models
 class Sondas(models.Model):
     name = models.CharField(max_length=200)
     address = models.CharField(max_length=400)
-    user = models.CharField(max_length=50)
-    passwd = models.CharField(max_length=50)
     localizacion = models.CharField(max_length=300)
-
+    ssh = models.BooleanField()
     def __unicode__(self):
         return self.name
 
@@ -35,5 +33,5 @@ class HostsServicesSondas(models.Model):
     host = models.ForeignKey(Hosts)
     service = models.ForeignKey(Services)
     sonda = models.ForeignKey(Sondas)
-    freshness_threshold = models.IntegerField()
+    check_every = models.IntegerField()
     contact = models.CharField(max_length=200)
