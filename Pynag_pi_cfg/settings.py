@@ -10,6 +10,18 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+
+
+# Celery settings
+
+BROKER_URL = 'amqp://localhost//'
+
+#: Only add pickle to this list if your broker is secured
+#: from unwanted access (see userguide/security.html)
+CELERY_ACCEPT_CONTENT = ['json']
+
+# Django settings
+
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 

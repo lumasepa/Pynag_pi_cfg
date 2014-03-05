@@ -6,12 +6,12 @@
 
 {% block content %}
 
-<p>Send key:</p>
+<p>Servicios & Sondas:</p>
 
 <form action="" method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <input type="hidden" name="action" value="ssh_key" />
+    <input type="hidden" name="action" value="set_by_block_service_sonda" />
     <input type="submit" name="apply" value="Confirm" />
 </form>
 

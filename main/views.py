@@ -1,4 +1,4 @@
-from main.models import Services, Hosts, Sondas, HostsServicesSondas
+from main.models import Service, Host, Sonda, HostsServicesSondas
 from django.views.generic import TemplateView
 from fabric.api import env, run, put
 from django.shortcuts import render_to_response
@@ -7,7 +7,8 @@ import sys
 from rest_framework.views import Response, APIView
 from rest_framework import status as httpstatus
 from django.template import Template, Context
-from os import path, system
+
+
 
 scriptSnippet = \
     """
@@ -25,7 +26,7 @@ class Index(TemplateView):
             print ("Creando configuraciones")
             try:
                 scripts = {}
-                sondas = Sondas.objects.all()
+                sondas = Sonda.objects.all()
                 hostsservicessondas = HostsServicesSondas.objects.all()
 
                 for sonda in sondas:
@@ -121,39 +122,8 @@ class NagiosCfg(APIView):
 
         response = template.render(
             Context({
-                "hosts": Hosts.objects.all(),
+                "hosts": Host.objects.all(),
                 "hostsservicessondas": hostsservicessondas,
             }))
         ## End Render
         return Response(response, status=httpstatus.HTTP_200_OK)
-
-
-class Confssh(TemplateView):
-    template_name = "confssh.html"
-
-    def post(self, request, *args, **kwargs):
-        return self.get(request, args, kwargs)
-
-    def get(self, request, *args, **kwargs):
-        if request.POST.get("passwd", "") != "" and request.POST.get("user", "") != "":
-            if not path.isfile("keys/id_rsa"):
-                system("ssh-keygen -t rsa -f keys/id_rsa -N ''")
-
-            env.user = request.POST["user"]
-            env.password = request.POST["passwd"]
-            sondas_actualizadas = 0
-            for sonda in Sondas.objects.all():
-                if (sonda.ssh == False):
-                    env.host_string = str(sonda.address)
-                    put("keys/id_rsa", "/root/.ssh/authorized_keys/id_rsa")
-                    sondas_actualizadas += 1
-
-            c = {}
-            c.update(csrf(request))
-            c["status"] = str(sondas_actualizadas) + " Sondas han recivido la llave ssh"
-            return render_to_response('index.html', c)
-        else:
-            c = {}
-            c.update(csrf(request))
-            c["status"] = ""
-            return render_to_response('confssh.html', c)

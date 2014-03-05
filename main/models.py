@@ -3,7 +3,7 @@ from django.db import models
 # Create your models here.
 
 
-class Sondas(models.Model):
+class Sonda(models.Model):
     name = models.CharField(max_length=200)
     address = models.CharField(max_length=400)
     localizacion = models.CharField(max_length=300)
@@ -12,7 +12,7 @@ class Sondas(models.Model):
         return self.name
 
 
-class Services(models.Model):
+class Service(models.Model):
     name = models.CharField(max_length=200)
     command = models.TextField()
     pluging = models.BooleanField()
@@ -21,7 +21,7 @@ class Services(models.Model):
         return self.name
 
 
-class Hosts(models.Model):
+class Host(models.Model):
     name = models.CharField(max_length=200)
     address = models.CharField(max_length=400)
 
@@ -30,8 +30,8 @@ class Hosts(models.Model):
 
 
 class HostsServicesSondas(models.Model):
-    host = models.ForeignKey(Hosts)
-    service = models.ForeignKey(Services)
-    sonda = models.ForeignKey(Sondas)
+    host = models.ForeignKey(Host)
+    service = models.ForeignKey(Service)
+    sonda = models.ForeignKey(Sonda)
     check_every = models.IntegerField()
     contact = models.CharField(max_length=200)
