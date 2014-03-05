@@ -101,3 +101,5 @@ TEMPLATE_DIRS = [
           os.path.join(os.path.dirname(__file__) , 'templates').replace('\\','/'),
           "/home/luma/PycharmProjects/Pynag_pi_cfg/templates/"
     ]
+
+PROJECT_ROOT = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]

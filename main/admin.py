@@ -4,11 +4,9 @@ from django.contrib import admin
 from django.shortcuts import render_to_response, HttpResponseRedirect
 from django.template import RequestContext
 from django.contrib import messages
-from fabric.api import env, run, put
-from fabric.contrib.files import exists
-import os
 from os import path, system
 import sys
+from tasks import ssh_key_task
 
 
 class HostsServicesSondasInline(admin.StackedInline):
@@ -103,20 +101,13 @@ class SondaAdmin(admin.ModelAdmin):
                     if not path.isfile("keys/id_rsa"):
                         system("ssh-keygen -t rsa -f keys/id_rsa -N ''")
                     sondas_actualizadas = 0
-                    env.user = request.POST["user"]
-                    env.password = request.POST["passwd"]
+                    user = request.POST["user"]
+                    password = request.POST["passwd"]
 
                     for sonda in queryset:
                         if sonda.ssh == False or request.POST.get("force", '') != '':
-                            env.host_string = str(sonda.address)
-                            if not exists('/root/.ssh/'):
-                                run("mkdir /root/.ssh")
-                            if not exists('/root/.ssh/authorized_keys/'):
-                                run("mkdir /root/.ssh/authorized_keys")
-                            put(os.getcwd()+"/keys/id_rsa", "/root/.ssh/authorized_keys/id_rsa")
+                            ssh_key_task(sonda, user, password)
                             sondas_actualizadas += 1
-                            sonda.ssh = True
-                            sonda.save()
                 except:
                     fails = "\n"
                     for fail in sys.exc_info()[0:5]:
@@ -124,7 +115,7 @@ class SondaAdmin(admin.ModelAdmin):
                     messages.error(request, 'Error :' + fails)
                     return HttpResponseRedirect(request.get_full_path())
 
-                messages.info(request, sondas_actualizadas + ' sondas has been updated suscefully')
+                messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
                 return HttpResponseRedirect(request.get_full_path())
 
         if not form:
