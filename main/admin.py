@@ -171,8 +171,8 @@ class HostsServicesSondasAdmin(admin.ModelAdmin):
 
 
 class TaskLogAdmin(admin.ModelAdmin):
-    search_fields = ['task',  'sonda', 'status']
-    list_display = ('task',  'sonda', 'status')
+    search_fields = ['task',  'sonda', 'status', 'timestamp']
+    list_display = ('task',  'sonda', 'status',  'timestamp')
     actions = ['ressh_key', 'resend_checks']
 
     scriptSnippet = \
@@ -225,32 +225,36 @@ class TaskLogAdmin(admin.ModelAdmin):
     def resend_checks(self, request, queryset):
         scripts = {}
         sondas = []
+        sondas_actualizadas = 0
         for tasklog in TasksLog.objects.all():
             if tasklog.status > 0 and tasklog.task.name == "send_checks":
                 sondas.append(tasklog.sonda)
                 tasklog.status = -1
                 tasklog.save()
+                failed = True
+                sondas_actualizadas += 1
 
-        hostsservicessondas = HostsServicesSondas.objects.all()
+        if sondas_actualizadas == 0:
+            messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
+            return HttpResponseRedirect(request.get_full_path())
 
         for sonda in sondas:
             scripts[sonda.name] = {}
 
-        for hostservicesonda in hostsservicessondas:
+            for hostservicesonda in HostsServicesSondas.objects.filter(sonda=sonda):
+                if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
+                    if int(hostservicesonda.check_every/60) == 0:
+                            hostservicesonda.check_every = 60
+                            hostservicesonda.save()
+                    scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)] = []
 
-            if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
-                if int(hostservicesonda.check_every/60) == 0:
-                        hostservicesonda.check_every = 60
-                        hostservicesonda.save()
-                scripts[sonda.name][int(hostservicesonda.check_every/60)] = []
-
-            if hostservicesonda.service.pluging:
-                snipet = self.scriptSnippet.replace("$2", hostservicesonda.service.command)
-                snipet = snipet.replace("$HOST", hostservicesonda.host.address)
-                snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
-                scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
-            else:
-                scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
+                if hostservicesonda.service.pluging:
+                    snipet = self.scriptSnippet.replace("$2", hostservicesonda.service.command)
+                    snipet = snipet.replace("$HOST", hostservicesonda.host.address)
+                    snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
+                    scripts[sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
+                else:
+                    scripts[sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
 
         ## Render template
 
@@ -272,6 +276,9 @@ class TaskLogAdmin(admin.ModelAdmin):
         ## Send Scripts
         for sonda in sondas:
             send_checks(sonda, scripts[sonda.name])
+
+        messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
+        return HttpResponseRedirect(request.get_full_path())
 
     resend_checks.short_description = "resend checks to failed"
 

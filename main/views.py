@@ -34,11 +34,11 @@ class Index(TemplateView):
 
             for hostservicesonda in hostsservicessondas:
 
-                if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
+                if not int(hostservicesonda.check_every/60) in scripts[hostservicesonda.sonda.name]:
                     if int(hostservicesonda.check_every/60) == 0:
                             hostservicesonda.check_every = 60
                             hostservicesonda.save()
-                    scripts[sonda.name][int(hostservicesonda.check_every/60)] = []
+                    scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)] = []
 
                 if hostservicesonda.service.pluging:
                     snipet = scriptSnippet.replace("$2", hostservicesonda.service.command)

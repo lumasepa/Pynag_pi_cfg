@@ -8,6 +8,7 @@ from fabric import exceptions
 from main.models import TasksLog, Task
 import os
 import sys
+import datetime
 
 @shared_task
 def ssh_key_task(sonda, user, passwd):
@@ -34,6 +35,7 @@ def ssh_key_task(sonda, user, passwd):
         tasklog.sonda = sonda
         tasklog.status = 0
         tasklog.task = Task.objects.get(name="ssh_key")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except exceptions.CommandTimeout:
         tasklog = TasksLog()
@@ -41,6 +43,7 @@ def ssh_key_task(sonda, user, passwd):
         tasklog.sonda = sonda
         tasklog.status = 1
         tasklog.task = Task.objects.get(name="ssh_key")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except exceptions.NetworkError:
         tasklog = TasksLog()
@@ -48,6 +51,7 @@ def ssh_key_task(sonda, user, passwd):
         tasklog.sonda = sonda
         tasklog.status = 1
         tasklog.task = Task.objects.get(name="ssh_key")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except:
         fail = "Unknow exeption :\n"
@@ -58,6 +62,7 @@ def ssh_key_task(sonda, user, passwd):
         tasklog.sonda = sonda
         tasklog.status = 2
         tasklog.task = Task.objects.get(name="ssh_key")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
 
 @shared_task
@@ -86,6 +91,7 @@ def send_checks(sonda, script):
         tasklog.sonda = sonda
         tasklog.status = 0
         tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except exceptions.CommandTimeout:
         tasklog = TasksLog()
@@ -93,6 +99,7 @@ def send_checks(sonda, script):
         tasklog.sonda = sonda
         tasklog.status = 1
         tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except exceptions.NetworkError:
         tasklog = TasksLog()
@@ -100,6 +107,7 @@ def send_checks(sonda, script):
         tasklog.sonda = sonda
         tasklog.status = 1
         tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()
     except:
         fail = "Unknow exeption :\n"
@@ -110,4 +118,5 @@ def send_checks(sonda, script):
         tasklog.sonda = sonda
         tasklog.status = 2
         tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.timestamp = datetime.datetime.now()
         tasklog.save()

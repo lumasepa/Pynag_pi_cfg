@@ -1,6 +1,13 @@
 from django.db import models
 
 # Create your models here.
+STATUS_CHOICES = (
+    (0, 'Correct'),
+    (1, 'Know fail'),
+    (2, 'Unknow fail'),
+    (-1, 'Relaunched'),
+)
+
 
 
 class Sonda(models.Model):
@@ -46,10 +53,11 @@ class Task(models.Model):
 
 
 class TasksLog(models.Model):
-    status = models.IntegerField()
+    status = models.IntegerField(choices=STATUS_CHOICES)
     message = models.TextField()
     sonda = models.ForeignKey(Sonda)
     task = models.ForeignKey(Task)
+    timestamp = models.DateTimeField()
 
     def __unicode__(self):
         return self.task.name + " " + str(self.status) + " " + self.sonda.name
