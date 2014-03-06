@@ -9,7 +9,7 @@ from fabric.contrib.files import exists
 import os
 from os import path, system
 import sys
-
+from django.conf import settings
 
 class HostsServicesSondasInline(admin.StackedInline):
     model = HostsServicesSondas
@@ -100,8 +100,8 @@ class SondaAdmin(admin.ModelAdmin):
             form = self.SshForm(request.POST)
             if form.is_valid():
                 try:
-                    if not path.isfile("keys/id_rsa"):
-                        system("ssh-keygen -t rsa -f keys/id_rsa -N ''")
+                    if not path.isfile(settings.PROJECT_ROOT + "/keys/id_rsa"):
+                        system("ssh-keygen -t rsa -f " + settings.PROJECT_ROOT + "/keys/id_rsa -N ''")
                     sondas_actualizadas = 0
                     env.user = request.POST["user"]
                     env.password = request.POST["passwd"]
@@ -111,9 +111,10 @@ class SondaAdmin(admin.ModelAdmin):
                             env.host_string = str(sonda.address)
                             if not exists('/root/.ssh/'):
                                 run("mkdir /root/.ssh")
-                            if not exists('/root/.ssh/authorized_keys/'):
-                                run("mkdir /root/.ssh/authorized_keys")
-                            put(os.getcwd()+"/keys/id_rsa", "/root/.ssh/authorized_keys/id_rsa")
+                            if not exists('/root/.ssh/authorized/'):
+                                run("mkdir /root/.ssh/authorized")
+                            put(settings.PROJECT_ROOT + "/keys/id_rsa.pub", "/root/.ssh/authorized/id_rsa.pub")
+                            run("cat /root/.ssh/authorized/id_rsa.pub >> /root/.ssh/authorized_keys")
                             sondas_actualizadas += 1
                             sonda.ssh = True
                             sonda.save()
@@ -124,7 +125,7 @@ class SondaAdmin(admin.ModelAdmin):
                     messages.error(request, 'Error :' + fails)
                     return HttpResponseRedirect(request.get_full_path())
 
-                messages.info(request, sondas_actualizadas + ' sondas has been updated suscefully')
+                messages.info(request, str(sondas_actualizadas) + ' sondas has been updated suscefully')
                 return HttpResponseRedirect(request.get_full_path())
 
         if not form:

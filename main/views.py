@@ -7,7 +7,7 @@ import sys
 from rest_framework.views import Response, APIView
 from rest_framework import status as httpstatus
 from django.template import Template, Context
-
+from django.conf import settings
 
 
 scriptSnippet = \
@@ -35,15 +35,18 @@ class Index(TemplateView):
                 for hostservicesonda in hostsservicessondas:
 
                     if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
+                        if int(hostservicesonda.check_every/60) == 0:
+                            hostservicesonda.check_every = 60
+                            hostservicesonda.save()
                         scripts[sonda.name][int(hostservicesonda.check_every/60)] = []
 
                     if hostservicesonda.service.pluging:
                         snipet = scriptSnippet.replace("$2", hostservicesonda.service.command)
                         snipet = snipet.replace("$HOST", hostservicesonda.host.address)
                         snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
-                        scripts[hostservicesonda.sonda.name][hostservicesonda.check_every].append(snipet)
+                        scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
                     else:
-                        scripts[hostservicesonda.sonda.name][hostservicesonda.check_every].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
+                        scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
 
                 ## Render template
 
@@ -67,11 +70,12 @@ class Index(TemplateView):
                 for sonda in sondas:
                     print(sonda.address)
                     env.host_string = str(sonda.address)
-                    env.key_filename = 'keys/id_rsa.pem'
-                    put("scripts/checks-" + sonda.name + ".sh", "/root/" + "checks-" + sonda.name + ".sh")
+                    env.user = "root"
+                    env.key_filename = settings.PROJECT_ROOT + '/keys/id_rsa'
+                    put(settings.PROJECT_ROOT + "/scripts/checks-" + sonda.name + ".sh", "/root/" + "checks-" + sonda.name + ".sh")
 
                     for i in scripts[sonda.name].keys():
-                        crontab = crontabtemplate.replace("$2", i)
+                        crontab = crontabtemplate.replace("$2", str(i))
                         run(crontab.replace("$1", "checks-" + sonda.name + ".sh "))
 
                     run("chmod +x /root/" + "checks-" + sonda.name + ".sh")

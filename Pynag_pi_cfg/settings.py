@@ -24,6 +24,7 @@ CELERY_ACCEPT_CONTENT = ['json']
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+PROJECT_ROOT = os.path.split(os.path.dirname(os.path.abspath(__file__)))[0]
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
@@ -99,5 +100,6 @@ STATIC_URL = '/static/'
 
 TEMPLATE_DIRS = [
           os.path.join(os.path.dirname(__file__) , 'templates').replace('\\','/'),
-          "/home/luma/PycharmProjects/Pynag_pi_cfg/templates/"
+          PROJECT_ROOT + "/templates/",
     ]
+
