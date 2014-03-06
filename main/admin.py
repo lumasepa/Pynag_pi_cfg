@@ -1,12 +1,14 @@
 from django import forms
-from main.models import Host, Service, Sonda, HostsServicesSondas
+from main.models import Host, Service, Sonda, HostsServicesSondas, TasksLog
 from django.contrib import admin
 from django.shortcuts import render_to_response, HttpResponseRedirect
 from django.template import RequestContext
 from django.contrib import messages
 from os import path, system
 import sys
-from tasks import ssh_key_task
+from tasks import ssh_key_task, send_checks
+from django.conf import settings
+from django.template import Template, Context
 
 
 class HostsServicesSondasInline(admin.StackedInline):
@@ -98,8 +100,8 @@ class SondaAdmin(admin.ModelAdmin):
             form = self.SshForm(request.POST)
             if form.is_valid():
                 try:
-                    if not path.isfile("keys/id_rsa"):
-                        system("ssh-keygen -t rsa -f keys/id_rsa -N ''")
+                    if not path.isfile(settings.PROJECT_ROOT + "/keys/id_rsa"):
+                        system("ssh-keygen -t rsa -f " + settings.PROJECT_ROOT + "/keys/id_rsa -N ''")
                     sondas_actualizadas = 0
                     user = request.POST["user"]
                     password = request.POST["passwd"]
@@ -168,7 +170,114 @@ class HostsServicesSondasAdmin(admin.ModelAdmin):
     list_display = ('host', 'service', 'sonda')
 
 
+class TaskLogAdmin(admin.ModelAdmin):
+    search_fields = ['task',  'sonda', 'status']
+    list_display = ('task',  'sonda', 'status')
+    actions = ['ressh_key', 'resend_checks']
+
+    scriptSnippet = \
+                """
+            MESSAGE=`$DIR_PLUGINGS/$2`
+            ssend_nsca "$HOST" "$SERVICE" "$?" "$MESSAGE"
+            """
+
+    class SshForm(forms.Form):
+        _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
+        user = forms.CharField(max_length=200)
+        passwd = forms.CharField(widget=forms.PasswordInput)
+        force = forms.BooleanField(required=False)
+
+    def ressh_key(self, request, queryset):
+        print(request.POST)
+        form = None
+        if 'apply' in request.POST:
+            form = self.SshForm(request.POST)
+            if form.is_valid():
+                try:
+                    if not path.isfile(settings.PROJECT_ROOT + "/keys/id_rsa"):
+                        system("ssh-keygen -t rsa -f " + settings.PROJECT_ROOT + "/keys/id_rsa -N ''")
+                    sondas_actualizadas = 0
+                    user = request.POST["user"]
+                    password = request.POST["passwd"]
+
+                    for tasklog in TasksLog.objects.all():
+                        if (tasklog.sonda.ssh == False or request.POST.get("force", '') != '') and tasklog.status > 0 and tasklog.task.name == "ssh_key":
+                            ssh_key_task(tasklog.sonda, user, password)
+                            sondas_actualizadas += 1
+                            tasklog.status = -1
+                            tasklog.save()
+                except:
+                    fails = "\n"
+                    for fail in sys.exc_info()[0:5]:
+                        fails = fails + str(fail) + "\n"
+                    messages.error(request, 'Error :' + fails)
+                    return HttpResponseRedirect(request.get_full_path())
+
+                messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
+                return HttpResponseRedirect(request.get_full_path())
+
+        if not form:
+            form = self.SshForm(initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
+        return render_to_response('confssh.html', {"form": form}, context_instance=RequestContext(request))
+
+    ressh_key.short_description = "resend key to failed"
+
+    def resend_checks(self, request, queryset):
+        scripts = {}
+        sondas = []
+        for tasklog in TasksLog.objects.all():
+            if tasklog.status > 0 and tasklog.task.name == "send_checks":
+                sondas.append(tasklog.sonda)
+                tasklog.status = -1
+                tasklog.save()
+
+        hostsservicessondas = HostsServicesSondas.objects.all()
+
+        for sonda in sondas:
+            scripts[sonda.name] = {}
+
+        for hostservicesonda in hostsservicessondas:
+
+            if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
+                if int(hostservicesonda.check_every/60) == 0:
+                        hostservicesonda.check_every = 60
+                        hostservicesonda.save()
+                scripts[sonda.name][int(hostservicesonda.check_every/60)] = []
+
+            if hostservicesonda.service.pluging:
+                snipet = self.scriptSnippet.replace("$2", hostservicesonda.service.command)
+                snipet = snipet.replace("$HOST", hostservicesonda.host.address)
+                snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
+                scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
+            else:
+                scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
+
+        ## Render template
+
+        f = open("templates/check_template.sh", "r")
+        template = Template(f.read())
+        f.close()
+
+        for sonda in sondas:
+            script = open("scripts/checks-" + sonda.name + ".sh", "w")
+            script.write(template.render(Context({
+                "NSCA_CONF_FILE": "/etc/send_nsca.cfg",
+                "DIR_PLUGINGS": "/usr/lib/nagios/plugins",
+                "NAGIOS_SERVER": "193.145.118.253",
+                "checks": scripts[sonda.name].iteritems(),
+            })))
+            script.close()
+        ## End Render
+
+        ## Send Scripts
+        for sonda in sondas:
+            send_checks(sonda, scripts[sonda.name])
+
+    resend_checks.short_description = "resend checks to failed"
+
+
 admin.site.register(Host, HostAdmin)
 admin.site.register(Service, ServiceAdmin)
 admin.site.register(Sonda, SondaAdmin)
-admin.site.register(HostsServicesSondas,HostsServicesSondasAdmin)
+admin.site.register(HostsServicesSondas, HostsServicesSondasAdmin)
+admin.site.register(TasksLog, TaskLogAdmin)

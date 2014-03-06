@@ -35,6 +35,9 @@ class Index(TemplateView):
             for hostservicesonda in hostsservicessondas:
 
                 if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
+                    if int(hostservicesonda.check_every/60) == 0:
+                            hostservicesonda.check_every = 60
+                            hostservicesonda.save()
                     scripts[sonda.name][int(hostservicesonda.check_every/60)] = []
 
                 if hostservicesonda.service.pluging:
@@ -65,15 +68,6 @@ class Index(TemplateView):
             ## Send Scripts
             for sonda in sondas:
                 send_checks(sonda, scripts[sonda.name])
-
-            """except:
-                c = {}
-                c.update(csrf(request))
-                c['status'] = "Unexpected error: \n"
-                for fails in sys.exc_info()[0:5]:
-                    c['status'] = c['status'] + "\n" + str(fails)
-                response = render_to_response('index.html', c)
-                return response"""
 
             c = {}
             c.update(csrf(request))

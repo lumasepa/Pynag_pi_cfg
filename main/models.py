@@ -35,3 +35,21 @@ class HostsServicesSondas(models.Model):
     sonda = models.ForeignKey(Sonda)
     check_every = models.IntegerField()
     contact = models.CharField(max_length=200)
+
+
+class Task(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+
+    def __unicode__(self):
+        return self.name
+
+
+class TasksLog(models.Model):
+    status = models.IntegerField()
+    message = models.TextField()
+    sonda = models.ForeignKey(Sonda)
+    task = models.ForeignKey(Task)
+
+    def __unicode__(self):
+        return self.task.name + " " + str(self.status) + " " + self.sonda.name
