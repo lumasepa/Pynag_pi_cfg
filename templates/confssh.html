@@ -11,7 +11,7 @@
 <form action="" method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <input type="hidden" name="action" value="ssh_key" />
+    <input type="hidden" name="action" value="{{ action }}" />
     <input type="submit" name="apply" value="Confirm" />
 </form>
 

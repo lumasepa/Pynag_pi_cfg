@@ -58,6 +58,16 @@ class TasksLog(models.Model):
     sonda = models.ForeignKey(Sonda)
     task = models.ForeignKey(Task)
     timestamp = models.DateTimeField()
+    historic = models.ManyToOneRel(TaskHistoric)
 
     def __unicode__(self):
         return self.task.name + " " + str(self.status) + " " + self.sonda.name
+
+
+class TaskHistoric(models.Model):
+    status = models.IntegerField(choices=STATUS_CHOICES)
+    message = models.TextField()
+    timestamp = models.DateTimeField()
+
+    def __unicode__(self):
+        return str(self.status) + " " + str(self.timestamp)

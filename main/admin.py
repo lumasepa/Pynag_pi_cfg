@@ -1,5 +1,5 @@
 from django import forms
-from main.models import Host, Service, Sonda, HostsServicesSondas, TasksLog
+from main.models import Host, Service, Sonda, HostsServicesSondas, TasksLog, TaskHistoric
 from django.contrib import admin
 from django.shortcuts import render_to_response, HttpResponseRedirect
 from django.template import RequestContext
@@ -15,6 +15,10 @@ class HostsServicesSondasInline(admin.StackedInline):
     model = HostsServicesSondas
     extra = 2
     pass
+
+
+class TaskHistoricInline(admin.StackedInline):
+    model = TaskHistoric
 
 
 class ServiceAdmin(admin.ModelAdmin):
@@ -108,7 +112,7 @@ class SondaAdmin(admin.ModelAdmin):
 
                     for sonda in queryset:
                         if sonda.ssh == False or request.POST.get("force", '') != '':
-                            ssh_key_task(sonda, user, password)
+                            ssh_key_task.apply_async((sonda.name, user, password), serializer="json")
                             sondas_actualizadas += 1
                 except:
                     fails = "\n"
@@ -122,7 +126,7 @@ class SondaAdmin(admin.ModelAdmin):
 
         if not form:
             form = self.SshForm(initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        return render_to_response('confssh.html', {"form": form}, context_instance=RequestContext(request))
+        return render_to_response('confssh.html', {"form": form, "action": "ssh_key"}, context_instance=RequestContext(request))
 
     ssh_key.short_description = "send key"
     pass
@@ -202,7 +206,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
                     for tasklog in TasksLog.objects.all():
                         if (tasklog.sonda.ssh == False or request.POST.get("force", '') != '') and tasklog.status > 0 and tasklog.task.name == "ssh_key":
-                            ssh_key_task(tasklog.sonda, user, password)
+                            ssh_key_task.apply_async((tasklog.sonda.name, user, password), serializer="json")
                             sondas_actualizadas += 1
                             tasklog.status = -1
                             tasklog.save()
@@ -218,7 +222,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
         if not form:
             form = self.SshForm(initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        return render_to_response('confssh.html', {"form": form}, context_instance=RequestContext(request))
+        return render_to_response('confssh.html', {"form": form, "action": "ressh_key"}, context_instance=RequestContext(request))
 
     ressh_key.short_description = "resend key to failed"
 
@@ -275,7 +279,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
         ## Send Scripts
         for sonda in sondas:
-            send_checks(sonda, scripts[sonda.name])
+            send_checks.apply_async((sonda.name, sonda.address, scripts[sonda.name]), serializer="json")
 
         messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
         return HttpResponseRedirect(request.get_full_path())

@@ -1,14 +1,11 @@
 from main.models import Service, Host, Sonda, HostsServicesSondas
 from django.views.generic import TemplateView
-from fabric.api import env, run, put
 from django.shortcuts import render_to_response
 from django.core.context_processors import csrf
-import sys
 from rest_framework.views import Response, APIView
 from rest_framework import status as httpstatus
 from django.template import Template, Context
 from tasks import send_checks
-
 
 scriptSnippet = \
     """
@@ -67,7 +64,7 @@ class Index(TemplateView):
 
             ## Send Scripts
             for sonda in sondas:
-                send_checks(sonda, scripts[sonda.name])
+                send_checks.apply_async((sonda.name, sonda.address, scripts[sonda.name]), serializer="json")
 
             c = {}
             c.update(csrf(request))
@@ -91,7 +88,6 @@ class Index(TemplateView):
 class NagiosCfg(APIView):
 
     def get(self, request, format=None):
-
         print ("Creando configuraciones nagios")
 
         ## Render template
