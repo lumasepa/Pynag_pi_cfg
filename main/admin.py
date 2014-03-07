@@ -1,5 +1,5 @@
 from django import forms
-from main.models import Host, Service, Sonda, HostsServicesSondas, TasksLog, TaskHistoric
+from main.models import Host, Service, Sonda, HostsServicesSondas
 from django.contrib import admin
 from django.shortcuts import render_to_response, HttpResponseRedirect
 from django.template import RequestContext
@@ -15,10 +15,6 @@ class HostsServicesSondasInline(admin.StackedInline):
     model = HostsServicesSondas
     extra = 2
     pass
-
-
-class TaskHistoricInline(admin.StackedInline):
-    model = TaskHistoric
 
 
 class ServiceAdmin(admin.ModelAdmin):
@@ -61,6 +57,7 @@ class SondaAdmin(admin.ModelAdmin):
     search_fields = ['name', 'address']
     list_display = ('name', 'address')
     actions = ['set_by_block_service_host','ssh_key']
+    readonly_fields = ["ssh", ]
 
     class SetByBlockServiceHost(forms.Form):
         _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
@@ -112,7 +109,7 @@ class SondaAdmin(admin.ModelAdmin):
 
                     for sonda in queryset:
                         if sonda.ssh == False or request.POST.get("force", '') != '':
-                            ssh_key_task.apply_async((sonda.name, user, password), serializer="json")
+                            ssh_key_task.apply_async((sonda.pk, user, password, None), serializer="json")
                             sondas_actualizadas += 1
                 except:
                     fails = "\n"
@@ -173,122 +170,7 @@ class HostsServicesSondasAdmin(admin.ModelAdmin):
     search_fields = ['host', 'service', 'sonda']
     list_display = ('host', 'service', 'sonda')
 
-
-class TaskLogAdmin(admin.ModelAdmin):
-    search_fields = ['task',  'sonda', 'status', 'timestamp']
-    list_display = ('task',  'sonda', 'status',  'timestamp')
-    actions = ['ressh_key', 'resend_checks']
-
-    scriptSnippet = \
-                """
-            MESSAGE=`$DIR_PLUGINGS/$2`
-            ssend_nsca "$HOST" "$SERVICE" "$?" "$MESSAGE"
-            """
-
-    class SshForm(forms.Form):
-        _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
-        user = forms.CharField(max_length=200)
-        passwd = forms.CharField(widget=forms.PasswordInput)
-        force = forms.BooleanField(required=False)
-
-    def ressh_key(self, request, queryset):
-        print(request.POST)
-        form = None
-        if 'apply' in request.POST:
-            form = self.SshForm(request.POST)
-            if form.is_valid():
-                try:
-                    if not path.isfile(settings.PROJECT_ROOT + "/keys/id_rsa"):
-                        system("ssh-keygen -t rsa -f " + settings.PROJECT_ROOT + "/keys/id_rsa -N ''")
-                    sondas_actualizadas = 0
-                    user = request.POST["user"]
-                    password = request.POST["passwd"]
-
-                    for tasklog in TasksLog.objects.all():
-                        if (tasklog.sonda.ssh == False or request.POST.get("force", '') != '') and tasklog.status > 0 and tasklog.task.name == "ssh_key":
-                            ssh_key_task.apply_async((tasklog.sonda.name, user, password), serializer="json")
-                            sondas_actualizadas += 1
-                            tasklog.status = -1
-                            tasklog.save()
-                except:
-                    fails = "\n"
-                    for fail in sys.exc_info()[0:5]:
-                        fails = fails + str(fail) + "\n"
-                    messages.error(request, 'Error :' + fails)
-                    return HttpResponseRedirect(request.get_full_path())
-
-                messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
-                return HttpResponseRedirect(request.get_full_path())
-
-        if not form:
-            form = self.SshForm(initial={'_selected_action': request.POST.getlist(admin.ACTION_CHECKBOX_NAME)})
-        return render_to_response('confssh.html', {"form": form, "action": "ressh_key"}, context_instance=RequestContext(request))
-
-    ressh_key.short_description = "resend key to failed"
-
-    def resend_checks(self, request, queryset):
-        scripts = {}
-        sondas = []
-        sondas_actualizadas = 0
-        for tasklog in TasksLog.objects.all():
-            if tasklog.status > 0 and tasklog.task.name == "send_checks":
-                sondas.append(tasklog.sonda)
-                tasklog.status = -1
-                tasklog.save()
-                failed = True
-                sondas_actualizadas += 1
-
-        if sondas_actualizadas == 0:
-            messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
-            return HttpResponseRedirect(request.get_full_path())
-
-        for sonda in sondas:
-            scripts[sonda.name] = {}
-
-            for hostservicesonda in HostsServicesSondas.objects.filter(sonda=sonda):
-                if not int(hostservicesonda.check_every/60) in scripts[sonda.name]:
-                    if int(hostservicesonda.check_every/60) == 0:
-                            hostservicesonda.check_every = 60
-                            hostservicesonda.save()
-                    scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)] = []
-
-                if hostservicesonda.service.pluging:
-                    snipet = self.scriptSnippet.replace("$2", hostservicesonda.service.command)
-                    snipet = snipet.replace("$HOST", hostservicesonda.host.address)
-                    snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
-                    scripts[sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
-                else:
-                    scripts[sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
-
-        ## Render template
-
-        f = open("templates/check_template.sh", "r")
-        template = Template(f.read())
-        f.close()
-
-        for sonda in sondas:
-            script = open("scripts/checks-" + sonda.name + ".sh", "w")
-            script.write(template.render(Context({
-                "NSCA_CONF_FILE": "/etc/send_nsca.cfg",
-                "DIR_PLUGINGS": "/usr/lib/nagios/plugins",
-                "NAGIOS_SERVER": "193.145.118.253",
-                "checks": scripts[sonda.name].iteritems(),
-            })))
-            script.close()
-        ## End Render
-
-        ## Send Scripts
-        for sonda in sondas:
-            send_checks.apply_async((sonda.name, sonda.address, scripts[sonda.name]), serializer="json")
-
-        messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
-        return HttpResponseRedirect(request.get_full_path())
-
-    resend_checks.short_description = "resend checks to failed"
-
-
 admin.site.register(Host, HostAdmin)
 admin.site.register(Service, ServiceAdmin)
 admin.site.register(Sonda, SondaAdmin)
 admin.site.register(HostsServicesSondas, HostsServicesSondasAdmin)
-admin.site.register(TasksLog, TaskLogAdmin)

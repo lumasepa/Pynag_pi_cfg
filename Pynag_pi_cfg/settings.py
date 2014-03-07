@@ -51,6 +51,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'fabric',
     'main',
+    'tasklog',
 )
 
 MIDDLEWARE_CLASSES = (

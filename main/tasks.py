@@ -5,20 +5,29 @@ from fabric.api import env, run, put
 from fabric.contrib.files import exists
 from django.conf import settings
 from fabric import exceptions
-from main.models import TasksLog, Task, Sonda
-import os
+from main.models import Sonda
+from tasklog.models import TasksLog, Task, TaskStatus
 import sys
 import datetime
 
 @shared_task
-def ssh_key_task(sonda_name, user, passwd):
-    sonda = Sonda.objects.get(name=sonda_name)
-    if Task.objects.filter(name="ssh_key").count() == 0:
+def ssh_key_task(sonda_pk, user, passwd, tasklog_pk):
+    sonda = Sonda.objects.get(pk=sonda_pk)
+    if Task.objects.get(name="ssh_key") is None:
         task = Task()
         task.name = "ssh_key"
         task.description = "send the ssh key to a sonda"
         task.save()
-    tasklog = TasksLog()
+    if tasklog_pk is None:
+        tasklog = TasksLog()
+        tasklog.sonda = sonda
+        tasklog.task = Task.objects.get(name="ssh_key")
+        tasklog.save()
+    else:
+        tasklog = TasksLog.objects.get(pk=tasklog_pk)
+    taskstatus = TaskStatus()
+    taskstatus.tasklog = tasklog
+
     try:
         env.skip_bad_hosts = True
         env.abort_on_prompts = True
@@ -34,69 +43,72 @@ def ssh_key_task(sonda_name, user, passwd):
         sonda.ssh = True
         sonda.save()
         print("Config done with " + sonda.name)
-        tasklog.message = "Config done with " + sonda.name
-        tasklog.status = 0
+        taskstatus.message = "Config done with " + sonda.name
+        taskstatus.status = 0
     except exceptions.CommandTimeout:
-        tasklog.message = "CommandTimeout"
-        tasklog.status = 1
+        taskstatus.message = "CommandTimeout"
+        taskstatus.status = 1
     except exceptions.NetworkError:
-        tasklog.message = "NetworkError"
-        tasklog.status = 1
+        taskstatus.message = "NetworkError"
+        taskstatus.status = 1
     except:
         fail = "Unknow exeption :\n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
-        tasklog = TasksLog()
-        tasklog.message = fail
-        tasklog.status = 2
+        taskstatus.message = fail
+        taskstatus.status = 2
 
-    tasklog.sonda = sonda
-    tasklog.task = Task.objects.get(name="ssh_key")
-    tasklog.timestamp = datetime.datetime.now()
-    tasklog.save()
+    taskstatus.timestamp = datetime.datetime.now()
+    taskstatus.save()
 
 @shared_task
-def send_checks(sonda_name, sonda_address, script):
+def send_checks(sonda_pk, script, tasklog_pk=None):
+    sonda = Sonda.objects.get(pk=sonda_pk)
     if Task.objects.filter(name="send_checks").count() == 0:
         task = Task()
         task.name = "send_checks"
         task.description = "send the script to a sonda and configure cron to execute the script"
         task.save()
-    tasklog = TasksLog()
+    if tasklog_pk is None:
+        tasklog = TasksLog()
+        tasklog.sonda = sonda
+        tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.save()
+    else:
+        tasklog = TasksLog.objects.get(pk=tasklog_pk)
+    taskstatus = TaskStatus()
+    taskstatus.tasklog = tasklog
+
     try:
         crontabtemplate = 'echo "*/$2 * * * * root /root/$1 $2" >> /etc/crontab'
         env.skip_bad_hosts = True
         env.abort_on_prompts = True
-        #env.abort_exception =
         env.user = "root"
-        env.host_string = str(sonda_address)
+        env.host_string = str(sonda.address)
         env.key_filename = settings.PROJECT_ROOT + '/keys/id_rsa'
-        put("scripts/checks-" + sonda_name + ".sh", "/root/" + "checks-" + sonda_name + ".sh")
+        put("scripts/checks-" + sonda.name + ".sh", "/root/" + "checks-" + sonda.name + ".sh")
 
         for i in script.keys():
             crontab = crontabtemplate.replace("$2", str(i))
-            run(crontab.replace("$1", "checks-" + sonda_name + ".sh "))
+            run(crontab.replace("$1", "checks-" + sonda.name + ".sh "))
 
-        run("chmod +x /root/" + "checks-" + sonda_name + ".sh")
+        run("chmod +x /root/" + "checks-" + sonda.name + ".sh")
 
-
-        tasklog.message = "Checks send to " + sonda_name
-        tasklog.status = 0
+        taskstatus.message = "Checks send to " + sonda.name
+        taskstatus.status = 0
 
     except exceptions.CommandTimeout:
-        tasklog.message = "CommandTimeout"
-        tasklog.status = 1
+        taskstatus.message = "CommandTimeout"
+        taskstatus.status = 1
     except exceptions.NetworkError:
-        tasklog.message = "NetworkError"
-        tasklog.status = 1
+        taskstatus.message = "NetworkError"
+        taskstatus.status = 1
     except:
         fail = "Unknow exeption :\n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
-        tasklog.message = fail
-        tasklog.status = 2
+        taskstatus.message = fail
+        taskstatus.status = 2
 
-    tasklog.sonda = Sonda.objects.get(name=sonda_name)
-    tasklog.task = Task.objects.get(name="send_checks")
-    tasklog.timestamp = datetime.datetime.now()
-    tasklog.save()
+    taskstatus.timestamp = datetime.datetime.now()
+    taskstatus.save()

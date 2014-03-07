@@ -64,7 +64,7 @@ class Index(TemplateView):
 
             ## Send Scripts
             for sonda in sondas:
-                send_checks.apply_async((sonda.name, sonda.address, scripts[sonda.name]), serializer="json")
+                send_checks.apply_async((sonda.pk, scripts[sonda.name], None), serializer="json")
 
             c = {}
             c.update(csrf(request))
