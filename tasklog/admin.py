@@ -128,7 +128,7 @@ class TaskLogAdmin(admin.ModelAdmin):
 
         ## Send Scripts
         for i in range(0, len(sondas)):
-            send_checks.apply_async((sondas[i].pk, scripts[sondas[i].name], tasklog[i]), serializer="json")
+            send_checks.apply_async((sondas[i].pk, scripts[sondas[i].name], tasklog_list[i].pk), serializer="json")
 
         messages.info(request, str(sondas_actualizadas) + ' sondas have been pushed to the task queue')
         return HttpResponseRedirect(request.get_full_path())

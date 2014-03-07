@@ -62,7 +62,7 @@ def ssh_key_task(sonda_pk, user, passwd, tasklog_pk):
     taskstatus.save()
 
 @shared_task
-def send_checks(sonda_pk, script, tasklog_pk=None):
+def send_checks(sonda_pk, script, tasklog_pk):
     sonda = Sonda.objects.get(pk=sonda_pk)
     if Task.objects.filter(name="send_checks").count() == 0:
         task = Task()
