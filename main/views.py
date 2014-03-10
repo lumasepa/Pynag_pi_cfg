@@ -36,14 +36,11 @@ class Index(TemplateView):
                             hostservicesonda.check_every = 60
                             hostservicesonda.save()
                     scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)] = []
-
-                if hostservicesonda.service.pluging:
-                    snipet = scriptSnippet.replace("$2", hostservicesonda.service.command)
+                    snipet = hostservicesonda.service.command
                     snipet = snipet.replace("$HOST", hostservicesonda.host.address)
                     snipet = snipet.replace("$SERVICE", hostservicesonda.service.name + "_" + hostservicesonda.sonda.name)
                     scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(snipet)
-                else:
-                    scripts[hostservicesonda.sonda.name][int(hostservicesonda.check_every/60)].append(hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
+
 
             ## Render template
 
@@ -54,9 +51,9 @@ class Index(TemplateView):
             for sonda in sondas:
                 script = open("scripts/checks-" + sonda.name + ".sh", "w")
                 script.write(template.render(Context({
-                    "NSCA_CONF_FILE": "/etc/send_nsca.cfg",
-                    "DIR_PLUGINGS": "/usr/lib/nagios/plugins",
-                    "NAGIOS_SERVER": "193.145.118.253",
+                    "NSCA_CONF_FILE": sonda.cfg_nsca,
+                    "DIR_PLUGINGS": sonda.dir_checks,
+                    "NAGIOS_SERVER": sonda.servidor_nagios,
                     "checks": scripts[sonda.name].iteritems(),
                 })))
                 script.close()
