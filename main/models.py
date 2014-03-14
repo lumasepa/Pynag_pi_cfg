@@ -7,8 +7,8 @@ class Sonda(models.Model):
     localizacion = models.CharField(max_length=300)
     ssh = models.BooleanField(default=False)
     dir_checks = models.CharField(default="/usr/lib/nagios/plugins", max_length=500, verbose_name="Directorio de plugings nagios")
-    cfg_nsca = models.CharField(default="/etc/send_nsca.cfg", max_length=500, verbose_name="Archivo de configuracion nsca")
     servidor_nagios = models.CharField(default="193.145.118.253", max_length=400)
+    nrpe_service_name = models.CharField(default="nagios-nrpe-server", max_length=400)
 
     def __unicode__(self):
         return self.name
@@ -16,7 +16,9 @@ class Sonda(models.Model):
 
 class Service(models.Model):
     name = models.CharField(max_length=200)
-    command = models.TextField(default='MESSAGE=`$DIR_PLUGINGS/check_xxx $HOST`\nssend_nsca \"$HOST" "$SERVICE" "$?" "$MESSAGE" ')
+    command = models.CharField(default='check_xxx $HOST', max_length=500)
+    command_nativo = models.BooleanField(default=False)
+    command_script = models.TextField(blank=True)
 
     def __unicode__(self):
         return self.name

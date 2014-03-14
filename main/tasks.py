@@ -4,16 +4,18 @@ from celery import shared_task
 from fabric.api import env, run, put
 from fabric.contrib.files import exists
 from django.conf import settings
-from fabric import exceptions
-from main.models import Sonda
+from main.models import Sonda, HostsServicesSondas
 from tasklog.models import TasksLog, Task, TaskStatus
 import sys
 import datetime
+from django.template import Template, Context
+
+
 
 @shared_task
-def ssh_key_task(sonda_pk, user, passwd, tasklog_pk):
+def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
     sonda = Sonda.objects.get(pk=sonda_pk)
-    if Task.objects.get(name="ssh_key") is None:
+    if Task.objects.filter(name="ssh_key").count() == 0:
         task = Task()
         task.name = "ssh_key"
         task.description = "send the ssh key to a sonda"
@@ -45,34 +47,31 @@ def ssh_key_task(sonda_pk, user, passwd, tasklog_pk):
         print("Config done with " + sonda.name)
         taskstatus.message = "Config done with " + sonda.name
         taskstatus.status = 0
-    except exceptions.CommandTimeout:
-        taskstatus.message = "CommandTimeout"
-        taskstatus.status = 1
-    except exceptions.NetworkError:
-        taskstatus.message = "NetworkError"
+    except Exception as e:
+        taskstatus.message = e.message
         taskstatus.status = 1
     except:
-        fail = "Unknow exeption :\n"
+        fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
-        taskstatus.message = fail
         taskstatus.status = 2
 
     taskstatus.timestamp = datetime.datetime.now()
     taskstatus.save()
 
+
 @shared_task
-def send_checks(sonda_pk, script, tasklog_pk):
+def send_nrpecfg(sonda_pk, tasklog_pk):
     sonda = Sonda.objects.get(pk=sonda_pk)
-    if Task.objects.filter(name="send_checks").count() == 0:
+    if Task.objects.filter(name="send_nrpecfg").count() == 0:
         task = Task()
-        task.name = "send_checks"
+        task.name = "send_nrpecfg"
         task.description = "send the script to a sonda and configure cron to execute the script"
         task.save()
     if tasklog_pk is None:
         tasklog = TasksLog()
         tasklog.sonda = sonda
-        tasklog.task = Task.objects.get(name="send_checks")
+        tasklog.task = Task.objects.get(name="send_nrpecfg")
         tasklog.save()
     else:
         tasklog = TasksLog.objects.get(pk=tasklog_pk)
@@ -80,34 +79,50 @@ def send_checks(sonda_pk, script, tasklog_pk):
     taskstatus.tasklog = tasklog
 
     try:
-        crontabtemplate = 'echo "*/$2 * * * * root /root/$1 $2" >> /etc/crontab'
+        data = {"NAGIOS_SERVER": sonda.servidor_nagios, "checks": []}
+        custom_checks = []
+        for hostservicesonda in HostsServicesSondas.objects.filter(sonda=sonda):
+            data["checks"].append("[" + sonda.name + "_" +
+                                  hostservicesonda.service.name + "_" +
+                                  hostservicesonda.host.name + "]=" +
+                                  sonda.dir_checks + "/" +
+                                  hostservicesonda.service.command.replace("$HOST", hostservicesonda.host.address))
+            if not hostservicesonda.service.command_nativo:
+                f = open("tmp/" + hostservicesonda.service.name, "w")
+                f.write(hostservicesonda.service.command_script.replace("$HOST", hostservicesonda.host.name))
+                f.close()
+                custom_checks.append(hostservicesonda.service.name)
+
+        f = open("templates/nrpe.cfg", "r")
+        template = Template(f.read())
+        f.close()
+
+        nrpecfg = open("tmp/nrpe.cfg", "w")
+        nrpecfg.write(template.render(Context(data)))
+        nrpecfg.close()
+
         env.skip_bad_hosts = True
         env.abort_on_prompts = True
         env.user = "root"
         env.host_string = str(sonda.address)
         env.key_filename = settings.PROJECT_ROOT + '/keys/id_rsa'
-        put("scripts/checks-" + sonda.name + ".sh", "/root/" + "checks-" + sonda.name + ".sh")
+        put("tmp/nrpe.cfg", "/etc/nagios/nrpe.cfg")
+        for check in custom_checks:
+            put("tmp/" + check, sonda.dir_checks + "/check_" + check)  # FAIL = Problem Space in rpi !!
+            run("chmod +x " + sonda.dir_checks + "/check_" + check)
 
-        for i in script.keys():
-            crontab = crontabtemplate.replace("$2", str(i))
-            run(crontab.replace("$1", "checks-" + sonda.name + ".sh "))
+        run("service " + sonda.nrpe_service_name + " restart")
 
-        run("chmod +x /root/" + "checks-" + sonda.name + ".sh")
-
-        taskstatus.message = "Checks send to " + sonda.name
+        taskstatus.message = "nrpe.cfg send to" + sonda.name
         taskstatus.status = 0
 
-    except exceptions.CommandTimeout:
-        taskstatus.message = "CommandTimeout"
-        taskstatus.status = 1
-    except exceptions.NetworkError:
-        taskstatus.message = "NetworkError"
+    except Exception as e:
+        taskstatus.message = e.message
         taskstatus.status = 1
     except:
-        fail = "Unknow exeption :\n"
+        fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
-        taskstatus.message = fail
         taskstatus.status = 2
 
     taskstatus.timestamp = datetime.datetime.now()

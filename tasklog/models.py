@@ -4,13 +4,6 @@ from django.db import models
 from django.db import models
 from main.models import Sonda
 
-STATUS_CHOICES = (
-    (0, 'Correct'),
-    (1, 'Know fail'),
-    (2, 'Unknow fail'),
-    (-1, 'Relaunched'),
-)
-
 
 class Task(models.Model):
     name = models.CharField(max_length=200)
@@ -29,6 +22,12 @@ class TasksLog(models.Model):
 
 
 class TaskStatus(models.Model):
+    STATUS_CHOICES = (
+        (0, 'Correct'),
+        (1, 'Know fail'),
+        (2, 'Unknow fail'),
+        (-1, 'Relaunched'),
+    )
     tasklog = models.ForeignKey(TasksLog)
     status = models.IntegerField(choices=STATUS_CHOICES)
     message = models.TextField()
