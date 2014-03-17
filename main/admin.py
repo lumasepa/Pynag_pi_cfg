@@ -112,8 +112,8 @@ class SondaAdmin(admin.ModelAdmin):
 
                 for sonda in queryset:
                     if sonda.ssh == False or request.POST.get("force", '') != '':
-                        #ssh_key_send_task.apply_async((sonda.pk, user, password, None), serializer="json")
-                        ssh_key_send_task(sonda.pk, user, password, None)
+                        ssh_key_send_task.apply_async((sonda.pk, user, password, None), serializer="json")
+                        #ssh_key_send_task(sonda.pk, user, password, None)
                         sondas_updated += 1
 
                 messages.info(request, str(sondas_updated) + ' sondas have been pushed to the task queue')

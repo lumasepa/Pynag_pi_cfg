@@ -15,8 +15,8 @@ class Index(TemplateView):
     def get(self, request, *args, **kwargs):
         if request.GET.get('sendcfg', '') == "1" or request.POST.get('sendcfg', '') == "1":
             for sonda in Sonda.objects.all():
-                # send_nrpecfg.apply_async((sonda.pk, None), serializer="json")
-                send_nrpecfg(sonda.pk, None)
+                send_nrpecfg.apply_async((sonda.pk, None), serializer="json")
+                #send_nrpecfg(sonda.pk, None)
 
             c = {}
             c.update(csrf(request))
@@ -48,5 +48,6 @@ class NagiosCfg(APIView):
                                           "sondas": Sonda.objects.all(),
                                       }),
                                       mimetype="text/plain")
+        print(response)
         response['Content-Disposition'] = 'attachment; filename=nagios.cfg'
         return Response(response, status=httpstatus.HTTP_200_OK)
