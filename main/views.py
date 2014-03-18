@@ -48,6 +48,5 @@ class NagiosCfg(APIView):
                                           "sondas": Sonda.objects.all(),
                                       }),
                                       mimetype="text/plain")
-        print(response)
         response['Content-Disposition'] = 'attachment; filename=nagios.cfg'
-        return Response(response, status=httpstatus.HTTP_200_OK)
+        return response
