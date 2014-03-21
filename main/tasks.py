@@ -97,7 +97,7 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
         template = Template(f.read())
         f.close()
 
-        nrpecfg = open("tmp/nrpe.cfg", "w")
+        nrpecfg = open("tmp/nrpe_" + sonda.name + ".cfg", "w")
         nrpecfg.write(template.render(Context(data)))
         nrpecfg.close()
 
@@ -106,14 +106,14 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
         env.user = "root"
         env.host_string = str(sonda.address)
         env.key_filename = settings.PROJECT_ROOT + '/keys/id_rsa'
-        put("tmp/nrpe.cfg", "/etc/nagios/nrpe.cfg")
+        put("tmp/nrpe_" + sonda.name + ".cfg", "/etc/nagios/nrpe.cfg")
         for check in custom_checks:
             put("tmp/" + check, sonda.dir_checks + "/check_" + check)  # FAIL = Problem Space in rpi !!
             run("chmod +x " + sonda.dir_checks + "/check_" + check)
 
         run("service " + sonda.nrpe_service_name + " restart")
 
-        taskstatus.message = "nrpe.cfg send to" + sonda.name
+        taskstatus.message = "nrpe.cfg send to " + sonda.name
         taskstatus.status = 0
 
     except Exception as e:
@@ -123,6 +123,7 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
         fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
+        taskstatus.message = fails
         taskstatus.status = 2
 
     taskstatus.timestamp = datetime.datetime.now()

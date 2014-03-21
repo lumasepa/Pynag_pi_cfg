@@ -75,8 +75,11 @@ class TaskLogAdmin(admin.ModelAdmin):
         tasklog_list = []
         sondas_updated = 0
         for tasklog in TasksLog.objects.all():
-            if tasklog.task.name == "send_checks":
-                last_timestamp = max([i.timestamp for i in TaskStatus.objects.filter(tasklog=tasklog)])
+            if tasklog.task.name == "send_nrpecfg":
+                if TaskStatus.objects.filter(tasklog=tasklog).count() == 1:
+                    last_timestamp = TaskStatus.objects.get(tasklog=tasklog).timestamp
+                else:
+                    last_timestamp = max([i.timestamp for i in TaskStatus.objects.filter(tasklog=tasklog)])
                 taskstatus = TaskStatus.objects.get(timestamp=last_timestamp, tasklog=tasklog)
                 if taskstatus.status > 0:
                     sondas.append(tasklog.sonda)
