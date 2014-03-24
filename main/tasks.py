@@ -38,7 +38,7 @@ def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
 
         if sonda.script_inicio != "":
             f = open("tmp/script_inicio_" + sonda.name, "w")
-            f.write(sonda.script_inicio)
+            f.write(sonda.script_inicio.replace("\r", ""))
             f.close()
             put("tmp/script_inicio_" + sonda.name, "/tmp/script_inicio")
             run("chmod 700 /tmp/script_inicio")
@@ -55,9 +55,11 @@ def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
         print("Config done with " + sonda.name)
         taskstatus.message = "Config done with " + sonda.name
         taskstatus.status = 0
+        env.password = ""
     except Exception as e:
-        taskstatus.message = e.message
+        taskstatus.message = str(e)
         taskstatus.status = 1
+
     except:
         fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
@@ -75,7 +77,7 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
     if Task.objects.filter(name="send_nrpecfg").count() == 0:
         task = Task()
         task.name = "send_nrpecfg"
-        task.description = "send the script to a sonda and configure cron to execute the script"
+        task.description = "send the nrpe configuration to the sonda"
         task.save()
     if tasklog_pk is None:
         tasklog = TasksLog()
@@ -119,7 +121,7 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
 
         if sonda.script_inicio is not None:
             f = open("tmp/script_inicio_" + sonda.name, "w")
-            f.write(sonda.script_inicio)
+            f.write(sonda.script_inicio.replace("\r", ""))
             f.close()
             put("tmp/script_inicio_" + sonda.name, "/tmp/script_inicio")
             run("chmod 700 /tmp/script_inicio")
@@ -136,13 +138,13 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
         taskstatus.status = 0
 
     except Exception as e:
-        taskstatus.message = e.message
+        taskstatus.message = str(e)
         taskstatus.status = 1
     except:
         fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
-        taskstatus.message = fails
+        taskstatus.message = fail
         taskstatus.status = 2
 
     taskstatus.timestamp = datetime.datetime.now()
