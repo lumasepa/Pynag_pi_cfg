@@ -1,4 +1,4 @@
-scripts/*
 keys/*
+tmp/*
 *.sqlite3
 *~

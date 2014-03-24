@@ -11,7 +11,6 @@ import datetime
 from django.template import Template, Context
 
 
-
 @shared_task
 def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
     sonda = Sonda.objects.get(pk=sonda_pk)
@@ -36,6 +35,15 @@ def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
         env.user = user
         env.password = passwd
         env.host_string = str(sonda.address)
+
+        if sonda.script_inicio != "":
+            f = open("tmp/script_inicio_" + sonda.name, "w")
+            f.write(sonda.script_inicio)
+            f.close()
+            put("tmp/script_inicio_" + sonda.name, "/tmp/script_inicio")
+            run("chmod 700 /tmp/script_inicio")
+            run("/tmp/script_inicio")
+
         if not exists('/root/.ssh/'):
             run("mkdir /root/.ssh")
         if not exists('/root/.ssh/authorized/'):
@@ -54,6 +62,7 @@ def ssh_key_send_task(sonda_pk, user, passwd, tasklog_pk):
         fail = "Unknow exeption !\n sys exc info : \n"
         for fails in sys.exc_info()[0:5]:
             fail += str(fails) + "\n"
+        taskstatus.message = fail
         taskstatus.status = 2
 
     taskstatus.timestamp = datetime.datetime.now()
@@ -79,6 +88,7 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
     taskstatus.tasklog = tasklog
 
     try:
+
         data = {"NAGIOS_SERVER": sonda.servidor_nagios, "checks": []}
         custom_checks = []
         for hostservicesonda in HostsServicesSondas.objects.filter(sonda=sonda):
@@ -106,6 +116,15 @@ def send_nrpecfg(sonda_pk, tasklog_pk):
         env.user = "root"
         env.host_string = str(sonda.address)
         env.key_filename = settings.PROJECT_ROOT + '/keys/id_rsa'
+
+        if sonda.script_inicio is not None:
+            f = open("tmp/script_inicio_" + sonda.name, "w")
+            f.write(sonda.script_inicio)
+            f.close()
+            put("tmp/script_inicio_" + sonda.name, "/tmp/script_inicio")
+            run("chmod 700 /tmp/script_inicio")
+            run("/tmp/script_inicio")
+
         put("tmp/nrpe_" + sonda.name + ".cfg", "/etc/nagios/nrpe.cfg")
         for check in custom_checks:
             put("tmp/" + check, sonda.dir_checks + "/check_" + check)  # FAIL = Problem Space in rpi !!

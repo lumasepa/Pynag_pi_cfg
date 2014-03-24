@@ -6,7 +6,7 @@ from main.models import Sonda
 
 
 class Task(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, unique=True)
     description = models.TextField()
 
     def __unicode__(self):
